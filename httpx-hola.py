@@ -1,0 +1,83 @@
+import json
+import random
+import urllib.parse
+import urllib.request
+import uuid
+
+import httpx
+import iso3166
+
+
+class Settings:
+    def __init__(self, userCountry: str = None, randomProxy: bool = False) -> None:
+        self.randomProxy = randomProxy
+        self.userCountry = userCountry
+        self.ccgi_url = "https://client.hola.org/client_cgi/"
+        self.ext_ver = "1.164.641"
+        self.ext_browser = "chrome"
+        self.user_uuid = uuid.uuid4().hex
+        self.user_agent = "Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36"
+        self.product = "cws"
+
+
+class Engine:
+    def __init__(self, Settings) -> None:
+        self.settings = Settings
+
+    @staticmethod
+    def encode_params(params, encoding=None) -> str:
+        return urllib.parse.urlencode(params, encoding=encoding)
+
+    def generate_session_key(self, timeout: float = 10.0) -> json:
+        post_data = {"login": "1", "ver": self.settings.ext_ver}
+        return httpx.post(
+            f"{self.settings.ccgi_url}background_init?uuid={self.settings.user_uuid}",
+            json=post_data,
+            headers={"User-Agent": self.settings.user_agent},
+            timeout=timeout,
+        ).json()["key"]
+
+    def zgettunnels(self, session_key: str, country: str, timeout: float = 10.0):
+        qs = self.encode_params(
+            {
+                "country": country,
+                "limit": 1,
+                "ping_id": random.random(),
+                "ext_ver": self.settings.ext_ver,
+                "browser": self.settings.ext_browser,
+                "product": self.settings.product,
+                "uuid": self.settings.user_uuid,
+                "session_key": session_key,
+                "is_premium": 0,
+            }
+        )
+
+        return httpx.post(
+            f"{self.settings.ccgi_url}zgettunnels?{qs}", timeout=timeout
+        ).json()
+
+
+class Hola:
+    def __init__(self, Settings) -> None:
+        self.myipUri: str = "https://hola.org/myip.json"
+        self.settings = Settings
+
+    def get_country(self) -> str:
+
+        if not self.settings.randomProxy and not self.settings.userCountry:
+            self.settings.userCountry = httpx.get(self.myipUri).json()["country"]
+
+        if not self.settings.userCountry in iso3166.list or self.settings.randomProxy:
+            self.settings.userCountry = random.choice(iso3166.list)
+
+        return self.settings.userCountry
+
+
+if __name__ == "__main__":
+    settings = Settings()  # True if you want random proxy each request / "DE" for a proxy with region of your choice (Dutch here) / Leave blank if you wish to have a proxy localized to your IP address
+    hola = Hola(settings)
+    engine = Engine(settings)
+
+    userCountry = hola.get_country()
+    session_key = engine.generate_session_key()
+    tunnels = engine.zgettunnels(session_key, userCountry)
