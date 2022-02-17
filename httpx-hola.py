@@ -29,7 +29,7 @@ class Engine:
     def encode_params(params, encoding=None) -> str:
         return urllib.parse.urlencode(params, encoding=encoding)
 
-    def get_proxy(self, tunnels, tls=False):
+    def get_proxy(self, tunnels, tls=False) -> str:
         login = f"user-uuid-{self.settings.user_uuid}"
         proxies = dict(tunnels)
         protocol = "https" if tls else "http"
@@ -51,10 +51,13 @@ class Engine:
             timeout=timeout,
         ).json()["key"]
 
-    def zgettunnels(self, session_key: str, country: str, timeout: float = 10.0):
+    def zgettunnels(
+        self, session_key: str, country: str, timeout: float = 10.0
+    ) -> json:
+        print(country)
         qs = self.encode_params(
             {
-                "country": country,
+                "country": country.lower(),
                 "limit": 1,
                 "ping_id": random.random(),
                 "ext_ver": self.settings.ext_ver,
@@ -88,7 +91,9 @@ class Hola:
 
 
 def init_proxy():
-    settings = Settings(True)  # True if you want random proxy each request / "DE" for a proxy with region of your choice (Dutch here) / Leave blank if you wish to have a proxy localized to your IP address
+    settings = (
+        Settings()
+    )  # True if you want random proxy each request / "DE" for a proxy with region of your choice (Dutch here) / Leave blank if you wish to have a proxy localized to your IP address
     hola = Hola(settings)
     engine = Engine(settings)
 
