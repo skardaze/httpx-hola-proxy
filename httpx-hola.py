@@ -18,6 +18,7 @@ class Settings:
         self.user_uuid = uuid.uuid4().hex
         self.user_agent = "Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36"
         self.product = "cws"
+        self.port_type_whitelist = {"direct", "peer"}
 
 
 class Engine:
@@ -27,6 +28,19 @@ class Engine:
     @staticmethod
     def encode_params(params, encoding=None) -> str:
         return urllib.parse.urlencode(params, encoding=encoding)
+
+    def get_proxy(self, tunnels, tls=False):
+        login = f"user-uuid-{self.settings.user_uuid}"
+        proxies = dict(tunnels)
+        protocol = "https" if tls else "http"
+        for k, v in proxies["ip_list"].items():
+            return "%s://%s:%s@%s:%d" % (
+                protocol,
+                login,
+                proxies["agent_key"],
+                k if tls else v,
+                proxies["port"]["direct"],
+            )
 
     def generate_session_key(self, timeout: float = 10.0) -> json:
         post_data = {"login": "1", "ver": self.settings.ext_ver}
@@ -73,11 +87,27 @@ class Hola:
         return self.settings.userCountry
 
 
-if __name__ == "__main__":
-    settings = Settings()  # True if you want random proxy each request / "DE" for a proxy with region of your choice (Dutch here) / Leave blank if you wish to have a proxy localized to your IP address
+def init_proxy():
+    settings = Settings(True)  # True if you want random proxy each request / "DE" for a proxy with region of your choice (Dutch here) / Leave blank if you wish to have a proxy localized to your IP address
     hola = Hola(settings)
     engine = Engine(settings)
 
     userCountry = hola.get_country()
     session_key = engine.generate_session_key()
     tunnels = engine.zgettunnels(session_key, userCountry)
+
+    proxies = {
+        "http://": engine.get_proxy(tunnels),
+        "https://": engine.get_proxy(tunnels),
+    }
+
+    del settings
+    del hola
+    del engine
+
+    return proxies
+
+
+if __name__ == "__main__":
+    test = httpx.get("https://hola.org/myip.json", proxies=init_proxy()).text
+    print(test)
