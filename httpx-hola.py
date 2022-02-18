@@ -5,7 +5,6 @@ import urllib.request
 import uuid
 
 import httpx
-import iso3166
 
 
 class Settings:
@@ -19,6 +18,7 @@ class Settings:
         self.user_agent = "Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36"
         self.product = "cws"
         self.port_type_whitelist = {"direct", "peer"}
+        self.zoneAvailable = ["AR", "AT", "AU", "BE", "BG", "BR", "CA", "CH", "CL", "CO", "CZ", "DE", "DK", "ES", "FI", "FR", "GR", "HK", "HR", "HU", "ID", "IE", "IL", "IN", "IS", "IT", "JP", "KR", "MX", "NL", "NO", "NZ", "PL", "RO", "RU", "SE", "SG", "SK", "TR", "UK", "US"]
 
 
 class Engine:
@@ -54,7 +54,6 @@ class Engine:
     def zgettunnels(
         self, session_key: str, country: str, timeout: float = 10.0
     ) -> json:
-        print(country)
         qs = self.encode_params(
             {
                 "country": country.lower(),
@@ -84,15 +83,15 @@ class Hola:
         if not self.settings.randomProxy and not self.settings.userCountry:
             self.settings.userCountry = httpx.get(self.myipUri).json()["country"]
 
-        if not self.settings.userCountry in iso3166.list or self.settings.randomProxy:
-            self.settings.userCountry = random.choice(iso3166.list)
+        if not self.settings.userCountry in self.settings.zoneAvailable or self.settings.randomProxy:
+            self.settings.userCountry = random.choice(self.settings.zoneAvailable)
 
         return self.settings.userCountry
 
 
 def init_proxy():
     settings = (
-        Settings()
+        Settings(True)
     )  # True if you want random proxy each request / "DE" for a proxy with region of your choice (Dutch here) / Leave blank if you wish to have a proxy localized to your IP address
     hola = Hola(settings)
     engine = Engine(settings)
